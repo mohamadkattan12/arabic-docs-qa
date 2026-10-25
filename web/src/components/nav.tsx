@@ -14,7 +14,7 @@ export function Nav() {
   const pathname = usePathname();
   return (
     <header className="border-b">
-      <nav aria-label="Main" className="mx-auto flex max-w-3xl items-center gap-1 px-4 py-3">
+      <nav aria-label="Main" className="mx-auto flex max-w-5xl items-center gap-1 px-4 py-3">
         <span className="me-4 font-semibold">Arabic Docs Q&amp;A</span>
         {LINKS.map(({ href, label }) => (
           <Link

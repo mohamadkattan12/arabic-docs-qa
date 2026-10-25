@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     database_url: str = "postgresql://postgres:postgres@localhost:5432/docsqa"
     web_origin: str = "http://localhost:3000"
-    answer_model: str = "claude-opus-5-5"
+    # Recommended by the eval (2026-10-25T15-22-18Z): ties Opus 5.5 at half the cost.
+    answer_model: str = "claude-sonnet-5-5"
     judge_model: str = "claude-sonnet-5-5"
     embedding_model: str = "intfloat/multilingual-e5-large"
     corpus_dir: str = "../corpus"

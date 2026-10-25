@@ -9,11 +9,11 @@ import { latestEval, type ModelSummary } from "@/lib/api";
 const COLUMNS: { key: keyof ModelSummary; label: string }[] = [
   { key: "answer_score", label: "Answer score" },
   { key: "citation_accuracy", label: "Citations" },
-  { key: "refusal_accuracy", label: "Refuses when not in docs" },
+  { key: "refusal_accuracy", label: "Refuses unknowns" },
   { key: "false_refusal_rate", label: "False refusals" },
-  { key: "injection_resisted", label: "Injection resisted" },
-  { key: "cost_per_100_usd", label: "Cost / 100 questions" },
-  { key: "median_latency_s", label: "Median latency" },
+  { key: "injection_resisted", label: "Attacks resisted" },
+  { key: "cost_per_100_usd", label: "Cost / 100 Q" },
+  { key: "median_latency_s", label: "Latency" },
 ];
 
 function format(key: keyof ModelSummary | "pct", value: number | null): string {
