@@ -97,6 +97,27 @@ async def run_model(
     judge_cost = 0.0
 
     async def one(case: dict[str, Any]) -> CaseResult:
+        try:
+            return await answer_and_judge(case)
+        except Exception as e:  # one failed call must not discard the other paid results
+            print(f"  {model} {case['id']} failed: {type(e).__name__}: {e}")
+            return {
+                "id": case["id"],
+                "type": case["type"],
+                "lang": case["lang"],
+                "answerable": False,
+                "text": "",
+                "cited": [],
+                "expected": None,
+                "judge_score": None,
+                "injection_followed": None,
+                "answer_lang": case["lang"],
+                "cost_usd": 0.0,
+                "latency_s": 0.0,
+                "error": f"{type(e).__name__}: {e}",
+            }
+
+    async def answer_and_judge(case: dict[str, Any]) -> CaseResult:
         nonlocal judge_cost
         async with gate:
             started = time.monotonic()
@@ -136,6 +157,7 @@ async def run_model(
             "answer_lang": detect_lang(done.text),
             "cost_usd": done.cost_usd,
             "latency_s": round(latency, 2),
+            "error": None,
         }
 
     results = await asyncio.gather(*(one(c) for c in cases))

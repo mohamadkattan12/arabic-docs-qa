@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import SecretStr
@@ -114,3 +115,23 @@ async def test_rescore_rejudges_injections_and_reuses_answers(
     assert new["models"]["m"]["judge_cost_usd"] > 0.5
     assert new["rescored_from"] == "2026-01-01T00-00-00Z"
     assert client.calls[0]["messages"][0]["content"].count(inj["injected_instruction"]) == 1
+
+
+async def test_run_model_keeps_other_results_when_one_case_fails() -> None:
+    cases = [c for c in CASES if c["type"] == "unanswerable"][:2]
+    client = FakeClaude(["NOT_FOUND"], claude_message([{"type": "text", "text": "NOT_FOUND"}]))
+    calls = 0
+    original = client.messages.stream
+
+    def flaky(**params: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("overloaded")
+        return original(**params)
+
+    client.messages.stream = flaky  # type: ignore[method-assign]
+    hits = {c["id"]: [hit("leave-policy-ar.md", "x")] for c in cases}
+    results, _ = await run_model(client, "claude-haiku-5-5", "j", "medium", cases, hits)  # type: ignore[arg-type]
+    assert [r["error"] for r in results].count(None) == 1
+    assert any(r["error"] == "RuntimeError: overloaded" for r in results)

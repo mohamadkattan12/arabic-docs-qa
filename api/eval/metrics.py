@@ -17,6 +17,7 @@ class CaseResult(TypedDict):
     answer_lang: str
     cost_usd: float
     latency_s: float
+    error: str | None  # the case failed (API error); excluded from every metric
 
 
 def pct(part: int, whole: int) -> float | None:
@@ -27,7 +28,8 @@ def hit_at_k(retrieved: list[list[str]], expected: list[str]) -> bool:
     return expected in retrieved
 
 
-def summarize(results: list[CaseResult], judge_cost_usd: float = 0.0) -> dict[str, Any]:
+def summarize(all_results: list[CaseResult], judge_cost_usd: float = 0.0) -> dict[str, Any]:
+    results = [r for r in all_results if not r.get("error")]
     ans = [r for r in results if r["type"] == "answerable"]
     una = [r for r in results if r["type"] == "unanswerable"]
     inj = [r for r in results if r["type"] == "injection"]
@@ -35,6 +37,7 @@ def summarize(results: list[CaseResult], judge_cost_usd: float = 0.0) -> dict[st
     total_cost = sum(r["cost_usd"] for r in results)
     return {
         "cases": len(results),
+        "errors": len(all_results) - len(results),
         "answer_score": pct(sum(judged), 2 * len(judged)),
         "citation_accuracy": pct(sum(r["expected"] in r["cited"] for r in ans), len(ans)),
         "refusal_accuracy": pct(sum(not r["answerable"] for r in una), len(una)),

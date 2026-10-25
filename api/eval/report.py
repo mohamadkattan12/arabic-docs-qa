@@ -38,6 +38,9 @@ def markdown(result: dict[str, Any]) -> str:
     for model, s in result["models"].items():
         lines.append(f"| `{model}` | " + " | ".join(fmt(s[k], k) for k, _ in COLUMNS) + " |")
     lines += ["", f"**Recommended model:** `{result['recommended']}`", ""]
+    failed = {m: s["errors"] for m, s in result["models"].items() if s.get("errors")}
+    if failed:
+        lines += [f"Failed cases (API errors, excluded from the metrics): {failed}", ""]
     lines += ["## Retrieval (expected section in top 6)", ""]
     lines += ["| Mode | All | Same language | Cross-language |", "|---|---|---|---|"]
     for mode, r in result["retrieval"].items():

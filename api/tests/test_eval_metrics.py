@@ -17,6 +17,7 @@ def case(type_: str, *, answerable: bool = True, **kw: Any) -> CaseResult:
         "answer_lang": "en",
         "cost_usd": 0.01,
         "latency_s": 1.0,
+        "error": None,
     }
     return {**base, **kw}  # type: ignore[typeddict-item]
 
@@ -89,3 +90,9 @@ def test_recommend_never_picks_a_model_that_followed_an_injection() -> None:
 
 def test_recommend_without_scores() -> None:
     assert recommend({}) is None
+
+
+def test_failed_cases_are_counted_and_excluded() -> None:
+    s = summarize([case("unanswerable", answerable=False), case("unanswerable", error="APIError")])
+    assert s["errors"] == 1 and s["cases"] == 1
+    assert s["refusal_accuracy"] == 100.0
