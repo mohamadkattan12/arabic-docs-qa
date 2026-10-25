@@ -2,14 +2,23 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from api.ingest import SUPPORTED_EXTENSIONS, DocumentTooLong, UnsupportedFile, ingest
 
-router = APIRouter()
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+def require_app_header(x_requested_by: str | None = Header(default=None)) -> None:
+    """Blocks cross-site form posts: a custom header forces a CORS preflight, which only the web
+    origin passes, so another site open in the same browser can't plant documents."""
+    if x_requested_by != "arabic-docs-qa":
+        raise HTTPException(403, "Missing X-Requested-By header.")
+
+
+router = APIRouter()
 
 
 class DocumentOut(BaseModel):
@@ -26,7 +35,7 @@ class UploadOut(BaseModel):
     created: bool
 
 
-@router.post("/documents", status_code=201)
+@router.post("/documents", status_code=201, dependencies=[Depends(require_app_header)])
 async def upload(file: UploadFile, request: Request, response: Response) -> UploadOut:
     name = Path(file.filename or "").name
     if Path(name).suffix.lower() not in SUPPORTED_EXTENSIONS:
@@ -60,7 +69,7 @@ def list_documents(request: Request) -> list[DocumentOut]:
     return [DocumentOut(id=r[0], name=r[1], lang=r[2], chunks=r[3], created_at=r[4]) for r in rows]
 
 
-@router.delete("/documents/{doc_id}", status_code=204)
+@router.delete("/documents/{doc_id}", status_code=204, dependencies=[Depends(require_app_header)])
 def delete_document(doc_id: UUID, request: Request) -> None:
     with request.app.state.pool.connection() as conn:
         deleted = conn.execute("DELETE FROM documents WHERE id = %s", (doc_id,)).rowcount

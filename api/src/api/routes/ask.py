@@ -23,7 +23,8 @@ class AskRequest(BaseModel):
 
 
 def _event(name: str, data: object) -> ServerSentEvent:
-    return ServerSentEvent(event=name, data=json.dumps(data, ensure_ascii=False))
+    # "\n" separators: the default "\r\n" can be split across network chunks on the client.
+    return ServerSentEvent(event=name, data=json.dumps(data, ensure_ascii=False), sep="\n")
 
 
 @router.post("/ask")

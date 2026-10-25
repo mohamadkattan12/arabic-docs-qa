@@ -27,7 +27,7 @@ def client(conn: psycopg.Connection, database_url: str) -> Iterator[TestClient]:
             [{"type": "text", "text": "سبعة وعشرون يوماً.", "citations": [cite(0, "27 يوم")]}]
         ),
     )
-    yield TestClient(app)
+    yield TestClient(app, headers={"X-Requested-By": "arabic-docs-qa"})
     pool.close()
 
 
@@ -42,6 +42,7 @@ def sse(text: str) -> list[tuple[str, dict[str, object]]]:
 def test_ask_streams_deltas_then_done_with_citations(client: TestClient) -> None:
     response = client.post("/ask", json={"question": "كم يوم إجازة سنوية؟"})
     assert response.status_code == 200
+    assert "\r" not in response.text  # plain "\n" separators (see routes/ask.py)
     events = sse(response.text)
     assert [e for e, _ in events] == ["delta", "delta", "done"]
     done = events[-1][1]
@@ -130,3 +131,12 @@ def test_upload_rejects_documents_longer_than_the_chunk_limit(client: TestClient
 
     at_limit = "\n\n".join([paragraph] * MAX_CHUNKS).encode()
     assert client.post("/documents", files={"file": ("ok.txt", at_limit)}).status_code == 201
+
+
+def test_document_changes_require_the_app_header(client: TestClient) -> None:
+    files = {"file": ("x.md", b"# X\n\nplanted")}
+    assert client.post("/documents", files=files, headers={"X-Requested-By": ""}).status_code == 403
+    doc_id = client.get("/documents").json()[0]["id"]
+    bad = client.delete(f"/documents/{doc_id}", headers={"X-Requested-By": "other"})
+    assert bad.status_code == 403
+    assert len(client.get("/documents").json()) == 8

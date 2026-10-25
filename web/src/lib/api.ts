@@ -1,4 +1,8 @@
+import { parseSSE } from "./sse";
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Required by the API on document changes (blocks cross-site form posts).
+const APP_HEADER = { "X-Requested-By": "arabic-docs-qa" };
 
 export type Citation = { document: string; location: string; quote: string };
 
@@ -48,14 +52,9 @@ export async function ask(
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
-    buffer += value.replaceAll("\r\n", "\n");
-    let end: number;
-    while ((end = buffer.indexOf("\n\n")) !== -1) {
-      const block = buffer.slice(0, end);
-      buffer = buffer.slice(end + 2);
-      const event = /^event: (.*)$/m.exec(block)?.[1];
-      const data = /^data: (.*)$/m.exec(block)?.[1];
-      if (!event || data === undefined) continue;
+    const parsed = parseSSE(buffer + value);
+    buffer = parsed.rest;
+    for (const { event, data } of parsed.events) {
       const payload = JSON.parse(data);
       if (event === "delta") onDelta(payload.text);
       else if (event === "done") return payload as Done;
@@ -74,7 +73,11 @@ export async function listDocuments(): Promise<DocumentRow[]> {
 export async function uploadDocument(file: File): Promise<{ created: boolean; name: string }> {
   const body = new FormData();
   body.append("file", file);
-  const response = await fetch(`${API_URL}/documents`, { method: "POST", body });
+  const response = await fetch(`${API_URL}/documents`, {
+    method: "POST",
+    headers: APP_HEADER,
+    body,
+  });
   if (!response.ok) throw new Error(await errorMessage(response));
   return response.json();
 }
@@ -82,6 +85,7 @@ export async function uploadDocument(file: File): Promise<{ created: boolean; na
 export async function deleteDocument(id: string): Promise<void> {
   const response = await fetch(`${API_URL}/documents/${encodeURIComponent(id)}`, {
     method: "DELETE",
+    headers: APP_HEADER,
   });
   if (!response.ok) throw new Error(await errorMessage(response));
 }
