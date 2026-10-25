@@ -56,6 +56,13 @@ class FakeMessages:
         self._client.calls.append({"beta": self._beta, **params})
         return FakeStream(self._client.deltas, self._client.message)
 
+    async def parse(self, **params: Any) -> SimpleNamespace:
+        """Structured-output call (used by the eval judge)."""
+        self._client.calls.append({"beta": self._beta, "parse": True, **params})
+        verdict = params["output_format"](score=self._client.judge_score, reason="fake")
+        usage = SimpleNamespace(input_tokens=500, output_tokens=50)
+        return SimpleNamespace(stop_reason="end_turn", parsed_output=verdict, usage=usage)
+
 
 class FakeClaude:
     """Stands in for anthropic.AsyncAnthropic; records every request."""
@@ -63,6 +70,7 @@ class FakeClaude:
     def __init__(self, deltas: list[str], message: Message) -> None:
         self.deltas, self.message = deltas, message
         self.calls: list[dict[str, Any]] = []
+        self.judge_score = 2
         self.messages = FakeMessages(self, beta=False)
         self.beta = SimpleNamespace(messages=FakeMessages(self, beta=True))
 

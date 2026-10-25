@@ -42,7 +42,7 @@ ignore = ["S101"]
 
 [tool.mypy]
 strict = true
-packages = ["api"]
+packages = ["api", "eval"]
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
