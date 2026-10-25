@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Markdown } from "@/components/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -139,9 +140,13 @@ function Answer({ turn, onRetry }: { turn: Turn; onRetry: () => void }) {
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border px-4 py-3" aria-live="polite" aria-busy={turn.status === "streaming"}>
-      <p dir="auto" className="whitespace-pre-wrap leading-7">
-        {turn.text || (turn.status === "streaming" ? "Searching the documents…" : "")}
-      </p>
+      {turn.text ? (
+        <div>
+          <Markdown>{turn.text}</Markdown>
+        </div>
+      ) : (
+        turn.status === "streaming" && <p className="text-muted-foreground">Searching the documents…</p>
+      )}
       {turn.status === "not-found" && <Badge variant="secondary">Not in the documents</Badge>}
       {turn.citations.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -169,7 +174,7 @@ function Answer({ turn, onRetry }: { turn: Turn; onRetry: () => void }) {
               dir="auto"
               className="border-s-4 ps-3 text-sm text-muted-foreground"
             >
-              {turn.citations[open].quote}
+              <Markdown>{turn.citations[open].quote}</Markdown>
             </blockquote>
           )}
         </div>
