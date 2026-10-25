@@ -50,7 +50,7 @@ export default function EvalPage() {
         <div className="rounded-lg border p-4">
           <p>No evaluation has been run yet. Run it from the repo root (it calls the Claude API):</p>
           <pre className="mt-2 overflow-x-auto rounded bg-muted p-3 text-sm">
-            docker compose run --rm -v ./api/eval:/app/eval api uv run --no-sync python -m eval.run --yes
+            docker compose run --rm eval --yes
           </pre>
         </div>
       ) : (

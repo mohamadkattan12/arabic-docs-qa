@@ -39,6 +39,26 @@ services:
       retries: 30
       start_period: 20m # first start downloads the embedding model
 
+  # Evaluation runner (calls the Claude API): docker compose run --rm eval --yes
+  eval:
+    build: ./api
+    profiles: [eval]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/docsqa
+      FASTEMBED_CACHE_PATH: /models
+      CORPUS_DIR: /corpus
+    volumes:
+      - models:/models
+      - ./corpus:/corpus:ro
+      - ./api/eval:/app/eval
+    entrypoint: ["uv", "run", "--no-sync", "python", "-m", "eval.run"]
+    depends_on:
+      db:
+        condition: service_healthy
+
   web:
     build:
       context: ./web
