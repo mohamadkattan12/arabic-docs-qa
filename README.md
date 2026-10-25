@@ -93,7 +93,7 @@ The runner prints a cost estimate and won't call the API without `--yes`.
 docker compose up -d db                                  # Postgres on 127.0.0.1:5434
 cd api && uv sync && uv run pytest -q                    # tests use a throwaway database
 uv run ruff check . && uv run ruff format --check . && uv run mypy
-cd ../web && pnpm install && pnpm lint && pnpm typecheck && pnpm build
+cd ../web && pnpm install && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 
 Tests never download the embedding model or call Claude: they use a deterministic hash

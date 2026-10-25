@@ -5,9 +5,9 @@ evaluation harness. Single-user local demo; no auth, no tenancy. Owner: mohamadk
 
 ## Commands
 - Run: `docker compose up --build` → web http://localhost:3000, API http://localhost:8000/health → `{"status":"ok"}`
-- API tests: `cd api && uv run pytest -q` → healthy: `58 passed` (needs `docker compose up -d db`; Postgres on 127.0.0.1:5434)
+- API tests: `cd api && uv run pytest -q` → healthy: `65 passed` (needs `docker compose up -d db`; Postgres on 127.0.0.1:5434)
 - API lint/types: `uv run ruff check . && uv run ruff format --check . && uv run mypy` → `All checks passed!` / `Success: no issues found in 21 source files`
-- Web: `cd web && pnpm lint && pnpm typecheck && pnpm build` → exit 0, build lists routes `/`, `/documents`, `/eval`
+- Web: `cd web && pnpm lint && pnpm typecheck && pnpm test && pnpm build` → exit 0, `7 passed`, build lists routes `/`, `/documents`, `/eval`
 - Eval (costs money): `docker compose run --rm eval --yes`; free: `docker compose run --rm eval --retrieval-only`
 
 ## Verifying your work
@@ -21,7 +21,8 @@ live `/ask`) without the owner's OK in chat.
 - Python 3.12, strict mypy, plain psycopg (no ORM), parameterized SQL only.
 - Claude calls use the `anthropic` SDK; current models only (`claude-sonnet-5-5` default, see eval).
 - Next.js 16 differs from older versions: read `web/node_modules/next/dist/docs/` before writing web code.
-- Server data in the web app goes through TanStack Query; text from documents is never rendered as HTML.
+- Server data in the web app goes through TanStack Query; model/document text is never rendered as HTML and Markdown never loads remote resources (no `<img>`).
+- SSE events use `\n` separators and are parsed by `web/src/lib/sse.ts` only.
 - Changes follow the `sdlc` skill: intent, spec, plan in `docs/sdlc/<date>-<slug>/`, one commit per plan step, departures recorded in plan.md.
 
 ## Architecture
