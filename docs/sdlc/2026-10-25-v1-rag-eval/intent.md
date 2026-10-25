@@ -1,7 +1,7 @@
 # Intent: Arabic document Q&A with evaluation (portfolio project #1)
 
 Author: Mohamad Nour · Source: conversation (LinkedIn KSA job-market research) · Date: 2026-10-25
-Status: draft
+Status: accepted by Mohamad Nour on 2026-10-25 (open questions resolved: local multilingual embeddings; repo name arabic-docs-qa; Next.js + FastAPI)
 
 ## Problem
 Mohamad is applying for AI / software engineering jobs in Saudi Arabia. Employers ask for a GitHub
