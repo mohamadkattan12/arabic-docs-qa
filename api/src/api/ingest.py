@@ -8,6 +8,7 @@ from api.chunking import Chunk, chunk_markdown, chunk_pdf, chunk_plain, detect_l
 from api.embeddings import Embedder
 
 FTS_CONFIG = {"ar": "arabic", "en": "english"}
+SUPPORTED_EXTENSIONS = {".pdf", ".md", ".txt"}
 
 
 class UnsupportedFile(ValueError):

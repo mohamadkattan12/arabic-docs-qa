@@ -27,6 +27,7 @@ services:
     volumes:
       - models:/models # embedding model (~2 GB) is downloaded once on first start
       - ./corpus:/corpus:ro
+      - ./api/eval/results:/app/eval/results:ro
     ports:
       - "8000:8000"
     depends_on:
