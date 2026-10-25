@@ -373,3 +373,5 @@ vite.config.ts.timestamp-*
 # project
 .env
 api/eval/results/*.tmp
+# The Python template ignores lib/ (build output); the web app keeps source code there.
+!web/src/lib/
