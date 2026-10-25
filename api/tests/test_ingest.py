@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import psycopg
 import pytest
 
-from api.ingest import UnsupportedFile, ingest
+from api.ingest import UnsupportedFile, ingest, ingest_corpus
 from tests.fakes import HashEmbedder
 
 AR_DOC = "# سياسة الإجازات\n\nيحق للموظف الحصول على إجازة سنوية مدتها ثلاثون يوماً.\n".encode()
@@ -46,3 +48,11 @@ def test_rejects_bad_files(conn: psycopg.Connection, name: str, data: bytes, mes
     with pytest.raises(UnsupportedFile, match=message):
         ingest(conn, name, data, HashEmbedder())
     assert conn.execute("SELECT count(*) FROM documents").fetchone() == (0,)
+
+
+def test_ingest_corpus_loads_once(conn: psycopg.Connection) -> None:
+    corpus = Path(__file__).parents[2] / "corpus"
+    assert ingest_corpus(conn, corpus, HashEmbedder()) == len(list(corpus.glob("*.md"))) == 8
+    assert ingest_corpus(conn, corpus, HashEmbedder()) == 0
+    langs = conn.execute("SELECT lang, count(*) FROM documents GROUP BY lang ORDER BY lang")
+    assert langs.fetchall() == [("ar", 4), ("en", 4)]

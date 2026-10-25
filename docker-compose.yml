@@ -23,8 +23,10 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/docsqa
       WEB_ORIGIN: http://localhost:3000
       FASTEMBED_CACHE_PATH: /models
+      CORPUS_DIR: /corpus
     volumes:
       - models:/models # embedding model (~2 GB) is downloaded once on first start
+      - ./corpus:/corpus:ro
     ports:
       - "8000:8000"
     depends_on:

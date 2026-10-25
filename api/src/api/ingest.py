@@ -66,3 +66,11 @@ def ingest(
             ],
         )
     return row[0], True
+
+
+def ingest_corpus(conn: psycopg.Connection, corpus_dir: Path, embedder: Embedder) -> int:
+    """Load the bundled demo documents into an empty database. Returns how many were added."""
+    if conn.execute("SELECT 1 FROM documents LIMIT 1").fetchone():
+        return 0
+    paths = sorted(corpus_dir.glob("*.md"))
+    return sum(ingest(conn, p.name, p.read_bytes(), embedder)[1] for p in paths)

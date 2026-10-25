@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     answer_model: str = "claude-opus-5-5"
     judge_model: str = "claude-sonnet-5-5"
     embedding_model: str = "intfloat/multilingual-e5-large"
+    corpus_dir: str = "../corpus"
 
 
 settings = Settings()
