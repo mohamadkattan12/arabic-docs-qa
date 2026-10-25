@@ -114,3 +114,19 @@ def test_cors_allows_only_the_web_origin(client: TestClient) -> None:
 
     assert preflight("http://localhost:3000") == "http://localhost:3000"
     assert preflight("https://evil.example") is None
+
+
+def test_upload_rejects_documents_longer_than_the_chunk_limit(client: TestClient) -> None:
+    # Regression: a 10 MB text (~4,400 chunks) takes over an hour to embed on CPU and exhausted
+    # memory; documents are capped by chunk count instead.
+    from api.ingest import MAX_CHUNKS
+
+    paragraph = "Employees may work remotely two days per week. " * 50  # ~2,400 chars, one chunk
+    too_long = "\n\n".join([paragraph] * (MAX_CHUNKS + 1)).encode()
+    response = client.post("/documents", files={"file": ("handbook.txt", too_long)})
+    assert response.status_code == 413
+    assert str(MAX_CHUNKS) in response.json()["detail"]
+    assert len(client.get("/documents").json()) == 8  # nothing stored
+
+    at_limit = "\n\n".join([paragraph] * MAX_CHUNKS).encode()
+    assert client.post("/documents", files={"file": ("ok.txt", at_limit)}).status_code == 201
