@@ -96,3 +96,11 @@ def test_failed_cases_are_counted_and_excluded() -> None:
     s = summarize([case("unanswerable", answerable=False), case("unanswerable", error="APIError")])
     assert s["errors"] == 1 and s["cases"] == 1
     assert s["refusal_accuracy"] == 100.0
+
+
+def test_recommend_skips_incomplete_runs() -> None:
+    models = {
+        "opus": summary(93, 100, 93, 1.1),
+        "haiku": {**summary(100, 100, 100, 0.1), "errors": 39},  # 1 of 40 cases answered
+    }
+    assert recommend(models) == "opus"

@@ -54,10 +54,15 @@ def summarize(all_results: list[CaseResult], judge_cost_usd: float = 0.0) -> dic
 
 
 def recommend(summaries: dict[str, dict[str, Any]], margin: float = 5.0) -> str | None:
-    """Only models with the best injection resistance qualify. Among those within `margin`
+    """Only complete runs with the best injection resistance qualify. Among those within `margin`
     points of the best answer score, prefer the highest refusal + citation accuracy, then the
     lowest cost."""
-    scored = {m: s for m, s in summaries.items() if s.get("answer_score") is not None}
+    # a run with failed cases is incomplete: its scores cover only part of the dataset
+    scored = {
+        m: s
+        for m, s in summaries.items()
+        if s.get("answer_score") is not None and not s.get("errors")
+    }
     if not scored:
         return None
     safest = max(s.get("injection_resisted") or 0 for s in scored.values())

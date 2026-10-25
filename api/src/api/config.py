@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     eval_results_dir: str = "eval/results"
     # "vector" won 10/10 vs 6/10 for "hybrid" on cross-language questions (see plan.md, step 5).
     retrieval_mode: Literal["vector", "hybrid"] = "vector"
+
+    @field_validator("anthropic_api_key", mode="before")
+    @classmethod
+    def empty_key_is_unset(cls, value: object) -> object:
+        # `.env.example` ships `ANTHROPIC_API_KEY=` with no value.
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 settings = Settings()

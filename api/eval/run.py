@@ -270,6 +270,7 @@ async def rescore(
         previous = result["models"][model]["judge_cost_usd"]
         result["models"][model] = summarize(results, previous + extra_cost)
     result["recommended"] = recommend(result["models"])
+    result["judge_model"] = judge_model
     result["rescored_from"], result["created_at"] = result["created_at"], timestamp()
     return result
 
