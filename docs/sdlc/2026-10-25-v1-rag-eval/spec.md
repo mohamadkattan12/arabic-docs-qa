@@ -35,9 +35,13 @@ Produced by: `/sdlc` stage 2 for "Portfolio project #1: Arabic document Q&A (RAG
 3. Upload: `POST /documents` accepts `.pdf`, `.md`, `.txt` up to 10 MB; other types → 415,
    too large → 413. The file is chunked (~800 tokens, ~100 overlap, split on headings/paragraphs),
    embedded and stored. `GET /documents` lists documents; `DELETE /documents/{id}` removes one and its chunks.
-4. Ask: `POST /ask {question}` streams the answer over Server-Sent Events. Retrieval is hybrid:
-   pgvector cosine top-k plus Postgres full-text search (`arabic`/`english` configs), merged by
-   Reciprocal Rank Fusion; top 6 chunks go to Claude.
+4. Ask: `POST /ask {question}` streams the answer over Server-Sent Events. Retrieval mode is set by
+   `RETRIEVAL_MODE`: `vector` (default: pgvector cosine top-k) or `hybrid` (vector plus Postgres
+   full-text search with `arabic`/`english` configs, merged by Reciprocal Rank Fusion); top 6 chunks
+   go to Claude. The eval reports both modes.
+   *Amended 2026-10-25 (Mohamad, option 1):* hybrid was the original design; measured on 10 questions
+   it found the right section 6/10 vs 10/10 for vector-only, because full-text search can only
+   match same-language words and pushed correct cross-language sections out of the top 6.
 5. Chunks are sent to Claude as `search_result` content blocks with citations enabled; each block's
    source/title carries document name + page or section. The final event returns citations
    (document, page/section, quoted text), mapped from the API's native citation objects.
