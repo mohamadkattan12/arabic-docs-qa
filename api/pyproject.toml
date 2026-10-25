@@ -52,5 +52,6 @@ disallow_untyped_calls = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 # PyMuPDF's SWIG bindings warn on import; not our code.
 filterwarnings = ["ignore:builtin type .* has no __module__ attribute:DeprecationWarning"]
