@@ -20,7 +20,7 @@ from api.db import migrate
 from api.embeddings import FastEmbedder
 from api.ingest import ingest, ingest_corpus
 from api.retrieval import Hit, retrieve
-from eval.judge import judge
+from eval.judge import judge, judge_injection
 from eval.metrics import CaseResult, hit_at_k, pct, recommend, summarize
 from eval.report import markdown
 
@@ -109,7 +109,12 @@ async def run_model(
                     done = item
             assert done is not None
             latency = time.monotonic() - started
-            score = None
+            score, followed = None, None
+            if case["type"] == "injection":
+                verdict_i, c = await judge_injection(
+                    client, judge_model, case["question"], case["injected_instruction"], done.text
+                )
+                followed, judge_cost = verdict_i.followed, judge_cost + c
             if case["type"] == "answerable":
                 score = 0
                 if done.answerable:
@@ -127,7 +132,7 @@ async def run_model(
             "cited": [[c.document, c.location] for c in done.citations],
             "expected": [expected, case["expected_location"]] if expected else None,
             "judge_score": score,
-            "canaries": case.get("canaries", []),
+            "injection_followed": followed,
             "answer_lang": detect_lang(done.text),
             "cost_usd": done.cost_usd,
             "latency_s": round(latency, 2),
@@ -147,6 +152,9 @@ async def main() -> None:
     parser.add_argument(
         "--retrieval-only", action="store_true", help="measure retrieval only (free, no API calls)"
     )
+    parser.add_argument(
+        "--rescore", type=Path, help="re-judge injection cases of a saved result (no new answers)"
+    )
     args = parser.parse_args()
 
     cases = [
@@ -155,6 +163,11 @@ async def main() -> None:
     cases = cases[: args.limit] if args.limit else cases
     models = args.models.split(",")
     estimate = sum(ESTIMATE_PER_QUESTION.get(m, 0.03) for m in models) * len(cases) * 1.3
+    if args.rescore:
+        if not args.yes:
+            raise SystemExit("Re-run with --yes to call the judge model (a few cents).")
+        save(await rescore(json.loads(args.rescore.read_text("utf-8")), cases, args.judge_model))
+        return
     if not args.retrieval_only:
         print(f"{len(cases)} cases x {len(models)} models; estimated ~${estimate:.2f} incl. judge")
         if not args.yes:
@@ -186,9 +199,8 @@ async def main() -> None:
         )
         summaries[model], per_case[model] = summarize(results, judge_cost), results
 
-    created = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
     result = {
-        "created_at": created,
+        "created_at": timestamp(),
         "dataset_size": len(cases),
         "embedding_model": settings.embedding_model,
         "retrieval_mode": settings.retrieval_mode,
@@ -200,10 +212,44 @@ async def main() -> None:
         "recommended": recommend(summaries),
         "cases": per_case,
     }
+    save(result)
+
+
+def timestamp() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
+
+
+def save(result: dict[str, Any]) -> None:
     out = EVAL_DIR / "results"
-    (out / f"{created}.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), "utf-8")
-    (out / f"{created}.md").write_text(markdown(result), "utf-8")
+    name = result["created_at"]
+    (out / f"{name}.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), "utf-8")
+    (out / f"{name}.md").write_text(markdown(result), "utf-8")
     print(markdown(result))
+
+
+async def rescore(
+    result: dict[str, Any], cases: list[dict[str, Any]], judge_model: str
+) -> dict[str, Any]:
+    """Re-judge the injection cases of a saved run with the current judge; answers are reused."""
+    assert settings.anthropic_api_key is not None
+    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key.get_secret_value())
+    by_id = {c["id"]: c for c in cases}
+    for model, results in result["cases"].items():
+        extra_cost = 0.0
+        for r in results:
+            r.pop("canaries", None)
+            r["injection_followed"] = None
+            if r["type"] == "injection":
+                case = by_id[r["id"]]
+                verdict, c = await judge_injection(
+                    client, judge_model, case["question"], case["injected_instruction"], r["text"]
+                )
+                r["injection_followed"], extra_cost = verdict.followed, extra_cost + c
+        previous = result["models"][model]["judge_cost_usd"]
+        result["models"][model] = summarize(results, previous + extra_cost)
+    result["recommended"] = recommend(result["models"])
+    result["rescored_from"], result["created_at"] = result["created_at"], timestamp()
+    return result
 
 
 if __name__ == "__main__":

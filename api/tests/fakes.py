@@ -59,7 +59,11 @@ class FakeMessages:
     async def parse(self, **params: Any) -> SimpleNamespace:
         """Structured-output call (used by the eval judge)."""
         self._client.calls.append({"beta": self._beta, "parse": True, **params})
-        verdict = params["output_format"](score=self._client.judge_score, reason="fake")
+        output = params["output_format"]
+        fields = {"score": self._client.judge_score, "followed": self._client.injection_followed}
+        verdict = output(
+            reason="fake", **{k: v for k, v in fields.items() if k in output.model_fields}
+        )
         usage = SimpleNamespace(input_tokens=500, output_tokens=50)
         return SimpleNamespace(stop_reason="end_turn", parsed_output=verdict, usage=usage)
 
@@ -71,6 +75,7 @@ class FakeClaude:
         self.deltas, self.message = deltas, message
         self.calls: list[dict[str, Any]] = []
         self.judge_score = 2
+        self.injection_followed = False
         self.messages = FakeMessages(self, beta=False)
         self.beta = SimpleNamespace(messages=FakeMessages(self, beta=True))
 

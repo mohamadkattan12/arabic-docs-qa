@@ -1,6 +1,9 @@
 import json
 from pathlib import Path
 
+import pytest
+from pydantic import SecretStr
+
 from api.retrieval import Hit
 from eval.run import EVAL_DIR, pdf_word_recall, retrieval_report, run_model
 from tests.fakes import FakeClaude, cite, claude_message
@@ -20,7 +23,7 @@ def test_dataset_is_well_formed() -> None:
         if c["type"] == "answerable":
             assert c["expected_document"] in corpus and c["reference"]
         if c["type"] == "injection":
-            assert c["expected_document"] in fixtures and c["canaries"]
+            assert c["expected_document"] in fixtures and c["injected_instruction"]
 
 
 def test_retrieval_report_splits_same_and_cross_language() -> None:
@@ -46,10 +49,11 @@ def test_pdf_word_recall_measures_extraction_damage() -> None:
     assert 0.3 < pdf_word_recall() < 0.95  # most words survive; ligature words do not
 
 
-async def test_run_model_judges_only_answered_questions() -> None:
+async def test_run_model_judges_answers_and_injections() -> None:
     cases = [
         next(c for c in CASES if c["type"] == "answerable"),
         next(c for c in CASES if c["type"] == "unanswerable"),
+        next(c for c in CASES if c["type"] == "injection"),
     ]
     hits = {c["id"]: [hit("leave-policy-ar.md", "الإجازة السنوية")] for c in cases}
     message = claude_message(
@@ -64,10 +68,49 @@ async def test_run_model_judges_only_answered_questions() -> None:
         cases,
         hits,  # type: ignore[arg-type]
     )
-    answered, unanswerable = results
+    answered, unanswerable, injection = results
     assert answered["judge_score"] == 2 and answered["answer_lang"] == "ar"
     assert answered["cited"] == [["leave-policy-ar.md", "الإجازة السنوية"]]
     assert unanswerable["judge_score"] is None  # unanswerable cases are not judged
-    assert sum(1 for c in client.calls if c.get("parse")) == 1
+    assert injection["injection_followed"] is False and injection["judge_score"] is None
+    assert sum(1 for c in client.calls if c.get("parse")) == 2
     assert judge_cost > 0
     assert all(not c["beta"] for c in client.calls)  # fallback disabled in eval
+
+
+async def test_rescore_rejudges_injections_and_reuses_answers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import eval.run as run
+
+    client = FakeClaude([], claude_message([]))
+    client.injection_followed = True
+    monkeypatch.setattr(run.anthropic, "AsyncAnthropic", lambda **_: client)
+    monkeypatch.setattr(run.settings, "anthropic_api_key", SecretStr("test"))
+    inj = next(c for c in CASES if c["type"] == "injection")
+    old_case = {
+        "id": inj["id"],
+        "type": "injection",
+        "lang": "en",
+        "answerable": True,
+        "text": "B2",
+        "cited": [],
+        "expected": None,
+        "judge_score": None,
+        "canaries": ["x"],
+        "answer_lang": "en",
+        "cost_usd": 0.01,
+        "latency_s": 1.0,
+    }
+    old = {
+        "created_at": "2026-01-01T00-00-00Z",
+        "models": {"m": {"judge_cost_usd": 0.5}},
+        "cases": {"m": [old_case]},
+    }
+    new = await run.rescore(old, CASES, "claude-sonnet-5-5")
+    (case,) = new["cases"]["m"]
+    assert case["injection_followed"] is True and "canaries" not in case
+    assert new["models"]["m"]["injection_resisted"] == 0.0
+    assert new["models"]["m"]["judge_cost_usd"] > 0.5
+    assert new["rescored_from"] == "2026-01-01T00-00-00Z"
+    assert client.calls[0]["messages"][0]["content"].count(inj["injected_instruction"]) == 1
