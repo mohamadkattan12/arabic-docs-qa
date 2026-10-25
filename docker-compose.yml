@@ -1,0 +1,75 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: docsqa
+    ports:
+      - "127.0.0.1:5434:5432" # host access for tests and psql
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d docsqa"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./api
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/docsqa
+      WEB_ORIGIN: http://localhost:3000
+      FASTEMBED_CACHE_PATH: /models
+      CORPUS_DIR: /corpus
+    volumes:
+      - models:/models # embedding model (~2 GB) is downloaded once on first start
+      - ./corpus:/corpus:ro
+      - ./api/eval/results:/app/eval/results:ro
+    ports:
+      - "127.0.0.1:8000:8000" # local only: the API spends your Anthropic key
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      retries: 30
+      start_period: 20m # first start downloads the embedding model
+
+  # Evaluation runner (calls the Claude API): docker compose run --rm eval --yes
+  eval:
+    build: ./api
+    profiles: [eval]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/docsqa
+      FASTEMBED_CACHE_PATH: /models
+      CORPUS_DIR: /corpus
+    volumes:
+      - models:/models
+      - ./corpus:/corpus:ro
+      - ./api/eval:/app/eval
+    entrypoint: ["uv", "run", "--no-sync", "python", "-m", "eval.run"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  models:
