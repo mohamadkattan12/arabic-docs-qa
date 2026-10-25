@@ -14,6 +14,10 @@ NOT_FOUND_MESSAGE = {
     "ar": "لم أجد إجابة لهذا السؤال في المستندات المتاحة.",
     "en": "I couldn't find the answer to this in the available documents.",
 }
+TRUNCATED_MESSAGE = {
+    "ar": "انقطعت الإجابة قبل اكتمالها. حاول طرح سؤال أكثر تحديداً.",
+    "en": "The answer was cut off before it finished. Try a more specific question.",
+}
 REFUSAL_MESSAGE = {
     "ar": "تعذّر الإجابة على هذا السؤال.",
     "en": "This question could not be answered.",
@@ -119,7 +123,9 @@ async def answer_stream(
                 yield delta
                 continue
             held += delta
-            if not NOT_FOUND.startswith(held.strip()):
+            start = held.strip()
+            # keep holding while the text is, or begins with, the sentinel ("NOT_FOUND.")
+            if not (NOT_FOUND.startswith(start) or start.startswith(NOT_FOUND)):
                 streaming = True
                 yield held
         message = await stream.get_final_message()
@@ -138,6 +144,8 @@ async def answer_stream(
         done.answerable, done.refused, done.text = False, True, REFUSAL_MESSAGE[lang]
     elif text.strip().startswith(NOT_FOUND):
         done.answerable, done.text = False, NOT_FOUND_MESSAGE[lang]
+    elif done.truncated and not text.strip():  # thinking used up max_tokens
+        done.answerable, done.text = False, TRUNCATED_MESSAGE[lang]
     else:
         seen: set[tuple[int, str]] = set()
         for block in message.content:

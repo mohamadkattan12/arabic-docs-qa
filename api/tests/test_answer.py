@@ -2,7 +2,15 @@ from typing import Any
 
 import pytest
 
-from api.answer import NOT_FOUND_MESSAGE, Citation, Done, answer_stream, build_content, cost
+from api.answer import (
+    NOT_FOUND_MESSAGE,
+    TRUNCATED_MESSAGE,
+    Citation,
+    Done,
+    answer_stream,
+    build_content,
+    cost,
+)
 from api.retrieval import Hit
 from tests.fakes import FakeClaude, cite, claude_message
 
@@ -119,3 +127,18 @@ async def test_no_hits_skips_the_api_call() -> None:
     parts = [x async for x in answer_stream(client, "claude-opus-5-5", "question", [])]  # type: ignore[arg-type]
     assert client.calls == []
     assert parts == [Done(answerable=False, model="claude-opus-5-5", text=NOT_FOUND_MESSAGE["en"])]
+
+
+async def test_sentinel_with_trailing_text_is_not_streamed() -> None:
+    client = FakeClaude(
+        ["NOT_FOUND", "."], claude_message([{"type": "text", "text": "NOT_FOUND."}])
+    )
+    streamed, done = await run(client, "What is the CEO salary?")
+    assert streamed == "" and not done.answerable
+
+
+async def test_empty_truncated_answer_gets_a_clear_message() -> None:
+    client = FakeClaude([], claude_message([], stop_reason="max_tokens"))
+    _, done = await run(client, "question")
+    assert done.truncated and not done.answerable
+    assert done.text == TRUNCATED_MESSAGE["en"]

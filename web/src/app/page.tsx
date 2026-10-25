@@ -10,7 +10,7 @@ import { ask, type Citation } from "@/lib/api";
 type Turn = {
   question: string;
   text: string;
-  status: "streaming" | "answered" | "not-found" | "error";
+  status: "streaming" | "answered" | "not-found" | "refused" | "error";
   citations: Citation[];
   error?: string;
 };
@@ -45,7 +45,11 @@ export default function AskPage() {
       update(index, {
         text: done.text,
         citations: done.citations,
-        status: done.answerable ? "answered" : "not-found",
+        status: done.answerable
+          ? "answered"
+          : done.refused || done.truncated
+            ? "refused"
+            : "not-found",
       });
     } catch (e) {
       update(index, { status: "error", error: e instanceof Error ? e.message : String(e) });
@@ -148,6 +152,7 @@ function Answer({ turn, onRetry }: { turn: Turn; onRetry: () => void }) {
         turn.status === "streaming" && <p className="text-muted-foreground">Searching the documents…</p>
       )}
       {turn.status === "not-found" && <Badge variant="secondary">Not in the documents</Badge>}
+      {turn.status === "refused" && <Badge variant="secondary">Couldn&apos;t answer</Badge>}
       {turn.citations.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium">Sources</p>
