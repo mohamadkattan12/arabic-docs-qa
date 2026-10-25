@@ -1,6 +1,6 @@
 # Spec: Arabic document Q&A with evaluation (v1)
 
-From: intent.md (f17546a) · Status: draft
+From: intent.md (f17546a) · Status: accepted by Mohamad Nour on 2026-10-25 (concerns 1, 2, 4 OK; concern 3 amended: eval compares several answer models)
 Skills applied: sdlc, claude-api, security-review, frontend-principles, prefer-cli-scaffolding (memory) @ ~/.claude 2bc6be4
 Produced by: `/sdlc` stage 2 for "Portfolio project #1: Arabic document Q&A (RAG + evaluation)"
 
@@ -16,7 +16,9 @@ Produced by: `/sdlc` stage 2 for "Portfolio project #1: Arabic document Q&A (RAG
    `paraphrase-multilingual-MiniLM-L12-v2` (~220 MB). Set by one env var; the eval compares both
    and the README reports the result. **Needs your OK on the default.**
 3. **The eval costs real API money.** One full run of ~40 questions with an LLM judge is
-   estimated at well under $1. It runs only by an explicit command, never in CI. CI uses a fake
+   estimated at well under $1 per answer model; comparing 3 models is a few dollars.
+   *Decision (Mohamad, 2026-10-25):* the eval compares several answer models so the README can
+   document which model is recommended and why. It runs only by an explicit command, never in CI. CI uses a fake
    Claude client, so no key lives in GitHub.
 4. **Model choice.** Answers: `claude-opus-5-5` (the current default model; best Arabic and
    citation quality). Judge: `claude-sonnet-5-5`. Both overridable by env var. Cost per question
@@ -52,8 +54,13 @@ Produced by: `/sdlc` stage 2 for "Portfolio project #1: Arabic document Q&A (RAG
    - refusal accuracy on unanswerable cases: deterministic (`answerable` flag)
    - answer correctness 0–2 against a reference answer: LLM judge with a written rubric
    - total cost and latency per case
+   - `--models a,b,c` runs the same dataset against several answer models (default:
+     `claude-opus-5-5,claude-sonnet-5-5,claude-haiku-5-5`) with the same judge, and the summary
+     has one row per model (all metrics + cost per 100 questions + median latency) plus a
+     "recommended model" line chosen by a written rule: highest refusal + citation accuracy,
+     then lowest cost among models within 5 points of the best answer score.
 10. The web UI has three pages: **Ask** (chat, streaming, citations as clickable chips that show
-    the quoted text), **Documents** (upload / list / delete), **Evaluation** (latest results
+    the quoted text), **Documents** (upload / list / delete), **Evaluation** (latest model-comparison
     table, read from `GET /eval/latest`).
 11. Arabic and other right-to-left text displays correctly: `dir="auto"` on message bubbles and
     inputs, and the layout does not break with mixed Arabic/English.
