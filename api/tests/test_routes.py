@@ -120,9 +120,12 @@ def test_cors_allows_only_the_web_origin(client: TestClient) -> None:
 def test_upload_rejects_documents_longer_than_the_chunk_limit(client: TestClient) -> None:
     # Regression: a 10 MB text (~4,400 chunks) takes over an hour to embed on CPU and exhausted
     # memory; documents are capped by chunk count instead.
+    from api.chunking import MAX_CHARS
     from api.ingest import MAX_CHUNKS
 
-    paragraph = "Employees may work remotely two days per week. " * 50  # ~2,400 chars, one chunk
+    sentence = "Employees may work remotely two days per week. "
+    # one chunk each: under MAX_CHARS, and too long for two to merge
+    paragraph = sentence * ((MAX_CHARS - 100) // len(sentence))
     too_long = "\n\n".join([paragraph] * (MAX_CHUNKS + 1)).encode()
     response = client.post("/documents", files={"file": ("handbook.txt", too_long)})
     assert response.status_code == 413

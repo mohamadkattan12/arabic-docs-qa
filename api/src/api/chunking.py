@@ -3,8 +3,9 @@ from dataclasses import dataclass
 
 import pymupdf
 
-# ~800 tokens of mixed Arabic/English text; overlap only applies when a paragraph is hard-split.
-MAX_CHARS = 2400
+# multilingual-e5-large truncates at 512 tokens: 2,400 Arabic chars measured 712 tokens, so 1,500
+# (~445) fits. Overlap only applies when a paragraph is hard-split.
+MAX_CHARS = 1500
 OVERLAP = 300
 HEADING = re.compile(r"^#{1,3}\s+(.+?)\s*$", re.MULTILINE)
 ARABIC = re.compile(r"[؀-ۿ]")
