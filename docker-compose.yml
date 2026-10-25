@@ -22,6 +22,9 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/docsqa
       WEB_ORIGIN: http://localhost:3000
+      FASTEMBED_CACHE_PATH: /models
+    volumes:
+      - models:/models # embedding model (~2 GB) is downloaded once on first start
     ports:
       - "8000:8000"
     depends_on:
@@ -31,6 +34,7 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
       retries: 30
+      start_period: 20m # first start downloads the embedding model
 
   web:
     build:
@@ -45,3 +49,4 @@ services:
 
 volumes:
   pgdata:
+  models:

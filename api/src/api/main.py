@@ -6,11 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.config import settings
 from api.db import migrate, open_pool
+from api.embeddings import FastEmbedder
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    migrate(settings.database_url, settings.embedding_dim)
+    app.state.embedder = FastEmbedder(settings.embedding_model)
+    migrate(settings.database_url, app.state.embedder.dim)
     app.state.pool = open_pool(settings.database_url)
     yield
     app.state.pool.close()

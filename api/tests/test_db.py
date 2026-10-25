@@ -2,8 +2,7 @@ import psycopg
 import pytest
 
 from api.db import migrate
-
-DIM = 8
+from tests.fakes import DIM
 
 
 def test_migrate_is_idempotent(database_url: str) -> None:

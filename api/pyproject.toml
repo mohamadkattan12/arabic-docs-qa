@@ -45,5 +45,12 @@ strict = true
 packages = ["api"]
 mypy_path = "src"
 
+[[tool.mypy.overrides]]
+# PyMuPDF ships without complete type hints.
+module = "api.chunking"
+disallow_untyped_calls = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# PyMuPDF's SWIG bindings warn on import; not our code.
+filterwarnings = ["ignore:builtin type .* has no __module__ attribute:DeprecationWarning"]
