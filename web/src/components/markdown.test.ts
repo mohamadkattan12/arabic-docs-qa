@@ -17,6 +17,10 @@ describe("Markdown", () => {
     expect(html).toContain("leak");
   });
 
+  it("gives headings automatic direction for Arabic", () => {
+    expect(render("## سياسة الإجازات")).toContain('dir="auto"');
+  });
+
   it("does not render raw HTML", () => {
     expect(render('<img src="https://attacker.example/x">')).not.toContain("<img");
   });

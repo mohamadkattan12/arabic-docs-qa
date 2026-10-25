@@ -10,6 +10,9 @@ export function Markdown({ children }: { children: string }) {
     <ReactMarkdown
       components={{
         img: ({ alt }) => <span>{alt}</span>,
+        h1: ({ children }) => <h3 dir="auto" className="mt-3 font-semibold">{children}</h3>,
+        h2: ({ children }) => <h3 dir="auto" className="mt-3 font-semibold">{children}</h3>,
+        h3: ({ children }) => <h3 dir="auto" className="mt-3 font-semibold">{children}</h3>,
         p: ({ children }) => <p dir="auto" className="leading-7 [&:not(:first-child)]:mt-3">{children}</p>,
         ul: ({ children }) => <ul className="mt-2 list-disc ps-6">{children}</ul>,
         ol: ({ children }) => <ol className="mt-2 list-decimal ps-6">{children}</ol>,

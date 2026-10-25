@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Markdown } from "@/components/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ type Turn = {
   text: string;
   status: "streaming" | "answered" | "not-found" | "refused" | "error";
   citations: Citation[];
+  truncated?: boolean;
   error?: string;
 };
 
@@ -45,6 +46,7 @@ export default function AskPage() {
       update(index, {
         text: done.text,
         citations: done.citations,
+        truncated: done.truncated,
         status: done.answerable
           ? "answered"
           : done.refused || done.truncated
@@ -53,7 +55,8 @@ export default function AskPage() {
       });
     } catch (e) {
       update(index, { status: "error", error: e instanceof Error ? e.message : String(e) });
-      setQuestion(text); // keep the question so the user can retry
+      // keep the question for a retry, unless the user already typed a new one
+      setQuestion((current) => current || text);
     }
     inputRef.current?.focus();
   }
@@ -130,6 +133,7 @@ export default function AskPage() {
 
 function Answer({ turn, onRetry }: { turn: Turn; onRetry: () => void }) {
   const [open, setOpen] = useState<number | null>(null);
+  const quoteId = useId(); // unique per answer, for aria-controls
 
   if (turn.status === "error") {
     return (
@@ -153,6 +157,9 @@ function Answer({ turn, onRetry }: { turn: Turn; onRetry: () => void }) {
       )}
       {turn.status === "not-found" && <Badge variant="secondary">Not in the documents</Badge>}
       {turn.status === "refused" && <Badge variant="secondary">Couldn&apos;t answer</Badge>}
+      {turn.status === "answered" && turn.truncated && (
+        <Badge variant="secondary">This answer was cut off before it finished</Badge>
+      )}
       {turn.citations.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium">Sources</p>
@@ -163,7 +170,7 @@ function Answer({ turn, onRetry }: { turn: Turn; onRetry: () => void }) {
                   variant="outline"
                   size="sm"
                   aria-expanded={open === i}
-                  aria-controls={`quote-${i}`}
+                  aria-controls={`${quoteId}-${i}`}
                   onClick={() => setOpen(open === i ? null : i)}
                 >
                   <bdi>{c.document}</bdi>
@@ -175,7 +182,7 @@ function Answer({ turn, onRetry }: { turn: Turn; onRetry: () => void }) {
           </ul>
           {open !== null && turn.citations[open] && (
             <blockquote
-              id={`quote-${open}`}
+              id={`${quoteId}-${open}`}
               dir="auto"
               className="border-s-4 ps-3 text-sm text-muted-foreground"
             >
