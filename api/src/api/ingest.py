@@ -9,9 +9,16 @@ from api.embeddings import Embedder
 
 FTS_CONFIG = {"ar": "arabic", "en": "english"}
 SUPPORTED_EXTENSIONS = {".pdf", ".md", ".txt"}
+# Embedding runs ~1 s per chunk on CPU, inside the upload request: 150 chunks (~350k characters)
+# keeps an upload to a few minutes.
+MAX_CHUNKS = 150
 
 
 class UnsupportedFile(ValueError):
+    pass
+
+
+class DocumentTooLong(UnsupportedFile):
     pass
 
 
@@ -46,6 +53,11 @@ def ingest(
         return existing[0], False
 
     chunks = parse(name, data)
+    if len(chunks) > MAX_CHUNKS:
+        raise DocumentTooLong(
+            f"This document has {len(chunks)} sections; the limit is {MAX_CHUNKS} "
+            "(about 350,000 characters). Split it into smaller files."
+        )
     vectors = embedder.embed_passages([c.content for c in chunks])
     lang = detect_lang(" ".join(c.content for c in chunks))
     with conn.transaction():

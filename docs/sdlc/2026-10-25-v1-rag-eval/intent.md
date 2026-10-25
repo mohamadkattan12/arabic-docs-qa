@@ -52,3 +52,12 @@ A public GitHub repo (account `mohamadkattan12`) where a reviewer can:
    Docker image) or Voyage AI (Anthropic's recommended embeddings partner, needs a second key). Decide in spec.
 2. Repo name: proposed `arabic-docs-qa`.
 3. UI stack: proposed Next.js frontend + Python FastAPI backend (matches the job posts), vs. one simpler Python UI.
+
+## Bug found in verification (2026-10-25)
+- **Symptom:** a 10 MB `.txt` upload OOM-killed the API container (exit 137, `OOMKilled=true`).
+- **Origin:** `api/src/api/embeddings.py` `embed_passages` used fastembed's default `batch_size=256`.
+- **Proof:** batch 256 of chunk-sized passages was OOM-killed; batch 32 peaked at 4.1 GB; batch 8 at 2.2 GB
+  (Docker VM 8.3 GB). Embedding runs ~1 s/chunk on CPU, so a 10 MB text (4,459 chunks) could not be
+  ingested in one request even without the memory spike.
+- **Fix:** batch size 8; documents capped at 150 chunks (413 with a clear message). Regression
+  tests: `api/tests/test_embeddings.py`, `test_upload_rejects_documents_longer_than_the_chunk_limit`.

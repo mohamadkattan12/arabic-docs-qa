@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from api.ingest import SUPPORTED_EXTENSIONS, UnsupportedFile, ingest
+from api.ingest import SUPPORTED_EXTENSIONS, DocumentTooLong, UnsupportedFile, ingest
 
 router = APIRouter()
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -41,6 +41,8 @@ async def upload(file: UploadFile, request: Request, response: Response) -> Uplo
 
     try:
         doc_id, created = await run_in_threadpool(store)
+    except DocumentTooLong as e:
+        raise HTTPException(413, str(e)) from e
     except UnsupportedFile as e:
         raise HTTPException(422, str(e)) from e
     if not created:

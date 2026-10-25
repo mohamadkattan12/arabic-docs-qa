@@ -32,8 +32,10 @@ Produced by: `/sdlc` stage 2 for "Portfolio project #1: Arabic document Q&A (RAG
 2. On first start the API loads the bundled corpus (`corpus/` with 6–8 fictional policy docs:
    about half in Arabic, half in English) if the database is empty. Ingest is idempotent:
    re-running it does not duplicate chunks (unique on document hash + chunk index).
-3. Upload: `POST /documents` accepts `.pdf`, `.md`, `.txt` up to 10 MB; other types → 415,
-   too large → 413. The file is chunked (~800 tokens, ~100 overlap, split on headings/paragraphs),
+3. Upload: `POST /documents` accepts `.pdf`, `.md`, `.txt` up to 10 MB and at most 150 chunks
+   (~350,000 characters); other types → 415, too large (bytes or chunks) → 413.
+   *Amended 2026-10-25 (Mohamad):* a 10 MB text is ~4,400 chunks, which crashed the API and would
+   take over an hour to embed on CPU; the chunk limit keeps uploads to a few minutes. The file is chunked (~800 tokens, ~100 overlap, split on headings/paragraphs),
    embedded and stored. `GET /documents` lists documents; `DELETE /documents/{id}` removes one and its chunks.
 4. Ask: `POST /ask {question}` streams the answer over Server-Sent Events. Retrieval mode is set by
    `RETRIEVAL_MODE`: `vector` (default: pgvector cosine top-k) or `hybrid` (vector plus Postgres
