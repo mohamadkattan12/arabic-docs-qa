@@ -5,7 +5,7 @@ import psycopg
 import pytest
 
 from api.ingest import ingest_corpus
-from api.retrieval import retrieve
+from api.retrieval import FTS_SQL, retrieve
 from tests.fakes import HashEmbedder
 
 CORPUS = Path(__file__).parents[2] / "corpus"
@@ -50,11 +50,14 @@ def test_empty_database_returns_nothing(conn: psycopg.Connection) -> None:
     assert retrieve(conn, "annual leave", HashEmbedder()) == []
 
 
-def test_hybrid_adds_full_text_matches(corpus_conn: psycopg.Connection) -> None:
-    # The hash embedder has no notion of stemming; full-text search does ("الإجازة" ~ "إجازة").
-    question = "إجازة"
+def test_hybrid_includes_full_text_and_vector_matches(corpus_conn: psycopg.Connection) -> None:
+    # HNSW search is approximate (randomized graph), so compare sets that hold for any index
+    # build: every full-text match and every vector candidate appears in the fused results.
+    question = "إجازة"  # full-text stemming matches "الإجازة"; the hash embedder does not
+    text_ids = {r[0] for r in corpus_conn.execute(FTS_SQL, {"q": question, "n": 20})}
     vector = {h.chunk_id for h in retrieve(corpus_conn, question, HashEmbedder(), k=20)}
     hybrid = {
         h.chunk_id for h in retrieve(corpus_conn, question, HashEmbedder(), k=40, mode="hybrid")
     }
-    assert vector < hybrid
+    assert text_ids and text_ids <= hybrid
+    assert vector <= hybrid
